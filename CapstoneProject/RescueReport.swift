@@ -226,7 +226,7 @@ struct ReportFormView: View {
                                     .font(.system(size: 34, weight: .bold))
                             }
                         }
-                        .onChange(of: vm.selection) { _ in
+                        .onChange(of: vm.selection) { oldValue, newValue in
                             Task { await vm.loadPickedMedia() }
                         }
 

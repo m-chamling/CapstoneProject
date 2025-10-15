@@ -38,7 +38,7 @@ struct WelcomePage: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.white)
+        .background(Color(.systemBackground))
     }
 }
 

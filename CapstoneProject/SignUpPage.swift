@@ -1,110 +1,125 @@
 import SwiftUI
+import SwiftData
 
 struct SignUpView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var auth: AuthViewModel
+    @Environment(\.modelContext) private var modelContext
+
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
+    @FocusState private var focusedField: Field?
+
+    private enum Field { case name, email, password }
+
+    private var canSubmit: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !password.isEmpty
+    }
 
     var body: some View {
         VStack {
             // Back Button
             HStack {
-                Button(action: {
-                    // Action for back button
-                }) {
+                Button(action: { dismiss() }) {
                     Image("Arrow")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 30, height:30)
-                        .font(.title)
-                        
+                        .frame(width: 30, height: 30)
                     Text("Back")
                         .font(.body)
                         .foregroundColor(.black)
-
                 }
                 Spacer()
             }
             .padding()
 
             // Logo/Image
-            Image("logo") // Replace with your logo image asset name
+            Image("logo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 65, height: 65) // Adjust size as necessary
+                .frame(width: 65, height: 65)
                 .padding(.top, 75)
-            
+
             // App Title
             Text("PawRescue")
                 .font(.custom("Helvetica-Bold", size: 22))
                 .padding(.top, 5)
                 .foregroundColor(Color(hex: "#312F30"))
-                .kerning(0.2)
-                .lineSpacing(30)
-                .padding(.top, 0)
 
             // Subtitle
             Text("Sign Up")
                 .font(.custom("Helvetica-Bold", size: 27))
                 .padding(.top, 100)
                 .foregroundColor(Color(hex: "#312F30"))
-                .kerning(0.2)
-                .lineSpacing(30)
-                .padding(.top, 0)
 
-            // Instructions Text
             Text("Enter your credentials to continue")
                 .font(.body)
                 .foregroundColor(.gray)
                 .padding(.top, 0.5)
 
-            // Name TextField
+            // Name
             TextField("Name", text: $name)
+                .textInputAutocapitalization(.words)
+                .autocorrectionDisabled(false)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .keyboardType(.emailAddress)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .cornerRadius(30)
+                .focused($focusedField, equals: .name)
+                .submitLabel(.next)
+                .onSubmit { focusedField = .email }
 
-            // Email TextField
+            // Email
             TextField("Email", text: $email)
-                .padding()
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
                 .keyboardType(.emailAddress)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 50)
-                .cornerRadius(30)
-
-            // Password SecureField
-            SecureField("Password", text: $password)
+                .textContentType(.emailAddress)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .cornerRadius(30)
+                .focused($focusedField, equals: .email)
+                .submitLabel(.next)
+                .onSubmit { focusedField = .password }
+
+            // Password
+            SecureField("Password", text: $password)
+                .textContentType(.newPassword)
+                .padding()
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .cornerRadius(30)
+                .focused($focusedField, equals: .password)
+                .submitLabel(.go)
+                .onSubmit { attemptSignUp() }
 
             // Sign Up Button
-            Button(action: {
-                // Sign Up action
-            }) {
+            Button(action: attemptSignUp) {
                 Text("Sign Up")
                     .font(.custom("Helvetica-Bold", size: 19))
                     .foregroundColor(.white)
                     .padding()
                     .frame(maxWidth: .infinity, minHeight: 50)
-                    .background(Color(hex: "#312F30"))
+                    .background(canSubmit ? Color(hex: "#312F30") : Color.gray.opacity(0.5))
                     .cornerRadius(30)
                     .padding(.horizontal, 30)
             }
+            .disabled(!canSubmit)
 
-            // Already have an account Login Link
+            // Already have an account?
             HStack {
                 Text("Already have an account?")
                     .font(.body)
                     .foregroundColor(.gray)
-                Button("Login") {
-                    // Action to navigate to the Login screen
+                NavigationLink("Login") {
+                    LoginView()
                 }
                 .font(.custom("Helvetica-Bold", size: 16))
                 .foregroundColor(Color(hex: "#9FAEAB"))
@@ -115,24 +130,41 @@ struct SignUpView: View {
 
             // Animal Images at the bottom
             HStack {
-                Image("animals")  // Replace with your animal image asset
+                Image("animals")
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 150)  // Adjust height as necessary
+                    .frame(height: 150)
             }
-            
         }
         .padding()
         .background(Color(.systemBackground))
         .edgesIgnoringSafeArea(.all)
         .navigationBarBackButtonHidden(true)
         .navigationBarHidden(true)
+        .alert("Sign Up Failed",
+               isPresented: .constant(auth.authError != nil),
+               presenting: auth.authError) { _ in
+            Button("OK", role: .cancel) { auth.authError = nil }
+        } message: { errorMessage in
+            Text(errorMessage)
+        }
+        .onAppear { focusedField = .name }
+    }
+
+    private func attemptSignUp() {
+        auth.signup(name: name, email: email, password: password, modelContext: modelContext)
+        // On success, RootGateView will switch to MainAppView automatically.
     }
 }
 
-struct SignUpView_Previews: PreviewProvider {
-    static var previews: some View {
+#Preview("Sign Up") {
+    // In-memory SwiftData for previews (no on-disk DB)
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: UserEntity.self, configurations: config)
+
+    return NavigationStack {
         SignUpView()
+            .environmentObject(AuthViewModel())
+            .modelContainer(container)
     }
 }
-

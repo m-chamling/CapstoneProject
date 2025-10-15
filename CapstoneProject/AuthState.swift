@@ -1,6 +1,8 @@
 import SwiftUI
+import SwiftData
+import CryptoKit
 
-// MARK: - Public session state shown to the app
+// MARK: - Session state
 enum AuthState: Equatable {
     case loggedOut
     case guest
@@ -13,56 +15,33 @@ final class AuthViewModel: ObservableObject {
     @Published var state: AuthState = .loggedOut
     @Published var authError: String? = nil
 
-    // Persisted session bits
     @AppStorage("savedEmail") private var savedEmail = ""
     @AppStorage("isGuest") private var isGuest = false
 
-    // “Database” of accounts (on-device JSON)
-    @AppStorage("users_v1") private var usersData: Data = Data()
-
-    private var users: [StoredUser] {
-        get { CodableStore.decodeArray(usersData) as [StoredUser] }
-        set { usersData = CodableStore.encodeArray(newValue) }
-    }
-
     init() {
-        restoreSession()
-        seedDemoIfEmpty() // optional: comment out if you don’t want seed data
-    }
-
-    // MARK: - Session
-    func restoreSession() {
+        // Restore simple session
         if isGuest {
             state = .guest
-        } else if !savedEmail.isEmpty, let match = users.first(where: { $0.email == savedEmail }) {
-            state = .loggedIn(AppUser(id: match.id, username: match.name, email: match.email))
+        } else if !savedEmail.isEmpty {
+            state = .loggedIn(
+                AppUser(
+                    id: UUID(),
+                    username: savedEmail.split(separator: "@").first.map(String.init) ?? "User",
+                    email: savedEmail
+                )
+            )
         } else {
             state = .loggedOut
         }
     }
 
-    func logout() {
-        authError = nil
-        savedEmail = ""
-        isGuest = false
-        state = .loggedOut
-    }
-
-    func continueAsGuest() {
-        authError = nil
-        isGuest = true
-        state = .guest
-    }
-
-    // MARK: - Auth (local)
-    func signup(name: String, email: String, password: String) {
+    // MARK: - Signup (SwiftData)
+    func signup(name: String, email: String, password: String, modelContext: ModelContext) {
         authError = nil
 
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let e = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let p = password
-
-        guard !n.isEmpty, !e.isEmpty, !p.isEmpty else {
+        guard !n.isEmpty, !e.isEmpty, !password.isEmpty else {
             authError = "Please fill all fields."
             return
         }
@@ -70,72 +49,71 @@ final class AuthViewModel: ObservableObject {
             authError = "Please enter a valid email."
             return
         }
-        if users.contains(where: { $0.email == e }) {
+
+        let svc = AuthService(context: modelContext)
+        if svc.findUser(byEmail: e) != nil {
             authError = "An account with this email already exists."
             return
         }
 
-        var list = users
-        let user = StoredUser(
-            id: UUID(),
-            name: n,
-            email: e,
-            passwordHash: PasswordHashing.sha256(p)
-        )
-        list.append(user)
-        users = list
-
-        savedEmail = e
-        isGuest = false
-        state = .loggedIn(AppUser(id: user.id, username: n, email: e))
+        let hash = AuthPasswordHashing.sha256(password)
+        do {
+            let user = try svc.createUser(name: n, email: e, passwordHash: hash)
+            savedEmail = user.email
+            isGuest = false
+            state = .loggedIn(AppUser(id: user.id, username: user.name, email: user.email))
+        } catch {
+            authError = "Could not create account. Try again."
+        }
     }
 
-    func login(email: String, password: String) {
+    // MARK: - Login (SwiftData)
+    func login(email: String, password: String, modelContext: ModelContext) {
         authError = nil
 
         let e = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let pHash = PasswordHashing.sha256(password)
-
         guard !e.isEmpty, !password.isEmpty else {
             authError = "Please enter email and password."
             return
         }
-        guard let match = users.first(where: { $0.email == e }) else {
+
+        let svc = AuthService(context: modelContext)
+        guard let u = svc.findUser(byEmail: e) else {
             authError = "No account found for this email."
             return
         }
-        guard match.passwordHash == pHash else {
+
+        if u.passwordHash != AuthPasswordHashing.sha256(password) {
             authError = "User credentials did not match."
             return
         }
 
-        savedEmail = e
+        savedEmail = u.email
         isGuest = false
-        state = .loggedIn(AppUser(id: match.id, username: match.name, email: match.email))
+        state = .loggedIn(AppUser(id: u.id, username: u.name, email: u.email))
     }
 
-    // MARK: - Utilities
+    func continueAsGuest() {
+        isGuest = true
+        state = .guest
+    }
+
+    func logout() {
+        savedEmail = ""
+        isGuest = false
+        state = .loggedOut
+    }
+
     private func isValidEmail(_ email: String) -> Bool {
-        // simple check; good enough for now
-        email.contains("@") && email.contains(".")
+        let pattern = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+        return email.range(of: pattern, options: .regularExpression) != nil
     }
+}
 
-    /// For testing: creates one demo account if DB is empty
-    private func seedDemoIfEmpty() {
-        guard users.isEmpty else { return }
-        users = [
-            StoredUser(
-                id: UUID(),
-                name: "Demo",
-                email: "demo@example.com",
-                passwordHash: PasswordHashing.sha256("password123")
-            )
-        ]
+// MARK: - Password hashing helper
+enum AuthPasswordHashing {
+    static func sha256(_ text: String) -> String {
+        let digest = SHA256.hash(data: Data(text.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
-
-    // Admin/Debug helpers
-    func resetAllUsers() {
-        users = []
-    }
-    func listAllUsers() -> [StoredUser] { users }
 }

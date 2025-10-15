@@ -1,136 +1,141 @@
 import SwiftUI
+import SwiftData
 
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var auth: AuthViewModel
+    @Environment(\.modelContext) private var modelContext
+
     @State private var email = ""
     @State private var password = ""
-    
+    @FocusState private var focusedField: Field?
+
+    private enum Field { case email, password }
+
+    var canSubmit: Bool {
+        !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !password.isEmpty
+    }
+
     var body: some View {
         VStack {
             // Back Button
             HStack {
-                Button(action: {
-                    // Action for back button
-                    dismiss()
-                }) {
+                Button(action: { dismiss() }) {
                     Image("Arrow")
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 30, height:30)
-                        .font(.title)
-                        
+                        .frame(width: 30, height: 30)
                     Text("Back")
                         .font(.body)
                         .foregroundColor(.black)
-
                 }
                 Spacer()
             }
             .padding()
-            
+
             // Logo/Image
-            Image("logo") // Replace with your logo image asset name
+            Image("logo")
                 .resizable()
                 .scaledToFit()
-                .frame(width: 65, height: 65) // Adjust size as necessary
+                .frame(width: 65, height: 65)
                 .padding(.top, 75)
-            
+
             // App Title
             Text("PawRescue")
                 .font(.custom("Helvetica-Bold", size: 22))
                 .padding(.top, 5)
                 .foregroundColor(Color(hex: "#312F30"))
-                .kerning(0.2)
-                .lineSpacing(30)
-                .padding(.top, 0)
-            
-            
-            // Main Title (Login)
+
+            // Main Title
             Text("Login")
                 .font(.custom("Helvetica-Bold", size: 27))
                 .padding(.top, 100)
                 .foregroundColor(Color(hex: "#312F30"))
-                .kerning(0.2)
-                .lineSpacing(30)
-                .padding(.top, 0)
-            
-            // Description Text
+
+            // Subtitle
             Text("Enter Your Email and Password")
                 .font(.body)
                 .foregroundColor(.gray)
                 .padding(.top, 0.5)
-            
-            // Email TextField
+
+            // Email
             TextField("Email", text: $email)
-                .padding()
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled(true)
                 .keyboardType(.emailAddress)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: .infinity, minHeight: 50)
-                .cornerRadius(30)
-            
-            // Password SecureField
-            SecureField("Password", text: $password)
+                .textContentType(.username)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .cornerRadius(30)
-            
-            
+                .focused($focusedField, equals: .email)
+                .submitLabel(.next)
+                .onSubmit {
+                    focusedField = .password
+                }
+
+            // Password
+            SecureField("Password", text: $password)
+                .textContentType(.password)
+                .padding()
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .cornerRadius(30)
+                .focused($focusedField, equals: .password)
+                .submitLabel(.go)
+                .onSubmit {
+                    attemptLogin()
+                }
+
             // Login Button
-            Button(action: {
-                // Login Action will be here
-            }) {
+            Button(action: attemptLogin) {
                 Text("Log In")
                     .font(.custom("Helvetica-Bold", size: 19))
                     .foregroundColor(.white)
                     .padding()
                     .frame(maxWidth: .infinity, minHeight: 50)
-                    .background(Color(hex: "#312F30"))
+                    .background(canSubmit ? Color(hex: "#312F30") : Color.gray.opacity(0.5))
                     .cornerRadius(30)
                     .padding(.horizontal, 30)
             }
-            
-            // Don't have an account Option
+            .disabled(!canSubmit)
+
+            // Sign Up
             HStack {
                 Text("Don't have an account?")
                     .font(.body)
                     .foregroundColor(.gray)
-                
-                Button("Sign Up") {
-                    // Later navigate to sign up page
+
+                NavigationLink("Sign Up") {
+                    SignUpView()   // ← make sure SignUpView uses modelContext in its button
                 }
                 .font(.custom("Helvetica-Bold", size: 16))
                 .foregroundColor(Color(hex: "#9FAEAB"))
             }
             .padding(.top, 5)
-            
-            
+
+            // Forgot Password (stub)
             HStack {
                 Button("Forgot Password") {
-                    // Navigate to Forgot Password screen
+                    // TODO: push your ChangePasswordView if you want
                 }
                 .foregroundColor(Color(hex: "#9FAEAB"))
-                .multilineTextAlignment(.center)
                 .font(.headline)
             }
             .padding(.top, 2)
-            
-            
-            // Guest Login Button
+
+            // Guest
             Button("Continue as Guest") {
-                // Action to continue as guest
+                auth.continueAsGuest()
             }
             .foregroundColor(Color(hex: "#9FAEAB"))
-            .multilineTextAlignment(.center)
             .font(.headline)
             .padding(.top, 20)
-            
+
             Spacer()
-            
-           
         }
         .padding()
         .background(Color(.systemBackground))
@@ -144,12 +149,23 @@ struct LoginView: View {
         } message: { errorMessage in
             Text(errorMessage)
         }
+        .onAppear { focusedField = .email }
+    }
 
+    private func attemptLogin() {
+        auth.login(email: email, password: password, modelContext: modelContext)
+        // On success, RootGateView will switch to MainAppView automatically.
     }
 }
 
-struct LoginView_Previews: PreviewProvider {
-    static var previews: some View {
+#Preview("Login Page") {
+    // In-memory SwiftData container for previews
+    let config = ModelConfiguration(isStoredInMemoryOnly: true)
+    let container = try! ModelContainer(for: UserEntity.self, configurations: config)
+
+    return NavigationStack {
         LoginView()
+            .environmentObject(AuthViewModel())
+            .modelContainer(container)
     }
 }
