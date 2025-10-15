@@ -101,6 +101,7 @@ struct ChangePasswordView: View {
 
             }
             .navigationBarHidden(true)
+            .navigationBarBackButtonHidden(true)
         }
     }
 }

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct LoginView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var auth: AuthViewModel
     @State private var email = ""
     @State private var password = ""
     
@@ -10,6 +12,7 @@ struct LoginView: View {
             HStack {
                 Button(action: {
                     // Action for back button
+                    dismiss()
                 }) {
                     Image("Arrow")
                         .resizable()
@@ -130,8 +133,18 @@ struct LoginView: View {
            
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .edgesIgnoringSafeArea(.all)
+        .navigationBarBackButtonHidden(true)
+        .navigationBarHidden(true)
+        .alert("Login Failed",
+               isPresented: .constant(auth.authError != nil),
+               presenting: auth.authError) { _ in
+            Button("OK", role: .cancel) { auth.authError = nil }
+        } message: { errorMessage in
+            Text(errorMessage)
+        }
+
     }
 }
 

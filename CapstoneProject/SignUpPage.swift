@@ -7,75 +7,82 @@ struct SignUpView: View {
 
     var body: some View {
         VStack {
-            // Back Button with arrow and text
+            // Back Button
             HStack {
                 Button(action: {
                     // Action for back button
                 }) {
-                    HStack {
-                        Image(systemName: "arrow.left.circle.fill")  // Use your custom image if needed
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 20, height: 20)  // Adjust the size of the arrow
-                            .foregroundColor(.blue)  // Set the color of the arrow
+                    Image("Arrow")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 30, height:30)
+                        .font(.title)
+                        
+                    Text("Back")
+                        .font(.body)
+                        .foregroundColor(.black)
 
-                        Text("Back")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.blue)  // Color of the "Back" text
-                    }
                 }
                 Spacer()
             }
             .padding()
 
-            // Logo
-            Image("pawLogo")  // Replace with your logo image name
+            // Logo/Image
+            Image("logo") // Replace with your logo image asset name
                 .resizable()
                 .scaledToFit()
-                .frame(width: 120, height: 120)
-                .padding(.top, 50)
-
-            // Title
+                .frame(width: 65, height: 65) // Adjust size as necessary
+                .padding(.top, 75)
+            
+            // App Title
             Text("PawRescue")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .padding(.top, 20)
+                .font(.custom("Helvetica-Bold", size: 22))
+                .padding(.top, 5)
+                .foregroundColor(Color(hex: "#312F30"))
+                .kerning(0.2)
+                .lineSpacing(30)
+                .padding(.top, 0)
 
             // Subtitle
             Text("Sign Up")
-                .font(.title2)
-                .padding(.top, 5)
+                .font(.custom("Helvetica-Bold", size: 27))
+                .padding(.top, 100)
+                .foregroundColor(Color(hex: "#312F30"))
+                .kerning(0.2)
+                .lineSpacing(30)
+                .padding(.top, 0)
 
             // Instructions Text
             Text("Enter your credentials to continue")
-                .font(.subheadline)
+                .font(.body)
                 .foregroundColor(.gray)
-                .padding(.top, 5)
+                .padding(.top, 0.5)
 
             // Name TextField
             TextField("Name", text: $name)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .frame(maxWidth: .infinity, minHeight: 60)
+                .keyboardType(.emailAddress)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 50)
                 .cornerRadius(30)
-                .padding(.top, 30)
 
             // Email TextField
             TextField("Email", text: $email)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .keyboardType(.emailAddress)
-                .frame(maxWidth: .infinity, minHeight: 60)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 50)
                 .cornerRadius(30)
-                .padding(.top, 20)
 
             // Password SecureField
             SecureField("Password", text: $password)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-                .frame(maxWidth: .infinity, minHeight: 60)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, minHeight: 50)
                 .cornerRadius(30)
-                .padding(.top, 20)
 
             // Sign Up Button
             Button(action: {
@@ -88,17 +95,19 @@ struct SignUpView: View {
                     .frame(maxWidth: .infinity, minHeight: 50)
                     .background(Color(hex: "#312F30"))
                     .cornerRadius(30)
-                    .padding(.top, 30)
-                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 30)
             }
 
             // Already have an account Login Link
             HStack {
                 Text("Already have an account?")
+                    .font(.body)
+                    .foregroundColor(.gray)
                 Button("Login") {
                     // Action to navigate to the Login screen
                 }
-                .foregroundColor(.blue)
+                .font(.custom("Helvetica-Bold", size: 16))
+                .foregroundColor(Color(hex: "#9FAEAB"))
             }
             .padding(.top, 20)
 
@@ -111,11 +120,13 @@ struct SignUpView: View {
                     .scaledToFit()
                     .frame(height: 150)  // Adjust height as necessary
             }
-            .padding(.top, 40)
+            
         }
         .padding()
-        .background(Color.white)
+        .background(Color(.systemBackground))
         .edgesIgnoringSafeArea(.all)
+        .navigationBarBackButtonHidden(true)
+        .navigationBarHidden(true)
     }
 }
 
