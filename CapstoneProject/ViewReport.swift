@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - Explore Existing Reports
+// MARK: - Explore Existing Reports (unchanged UI)
 struct ExploreReportsView: View {
     @Environment(\.dismiss) private var dismiss
     
@@ -16,11 +16,9 @@ struct ExploreReportsView: View {
                         .scaledToFit()
                         .frame(width: 30, height:30)
                         .font(.title)
-                        
                     Text("Back")
                         .font(.body)
                         .foregroundColor(.black)
-
                 }
                 Spacer()
             }
@@ -70,88 +68,141 @@ struct ExploreReportsView: View {
     }
 }
 
-// MARK: - List Screen
+// MARK: - Supabase-backed List Screen
 struct ReportListView: View {
     let category: ReportCategory
     
-    // Start empty — later you can fill this from Core Data, JSON, etc.
-    @State private var reports: [Report] = []
-    
+    @State private var items: [ReportsAPI.NetReport] = []
+    @State private var isLoading = false
+    @State private var errorText: String?
+
     var body: some View {
-        if reports.isEmpty {
-            VStack(spacing: 8) {
-                Image(systemName: "tray")
-                    .font(.largeTitle)
-                    .foregroundColor(Color(hex: "#312F30"))
-                Text("No reports yet")
-                    .font(.custom("Helvetica-Bold", size: 20))
-                    .padding(.top, 10)
-                    .foregroundColor(Color(hex: "#312F30"))
-                    .kerning(0.2)
-                    .lineSpacing(30)
-                    .padding(.top, 0)
-                Text("Check back later or pick another category.")
-                    .font(.body)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-            }
-            .padding()
-        } else {
-            List(reports.filter { $0.category == category }) { report in
-                NavigationLink {
-                    ReportDetailView(report: report)
-                } label: {
-                    ReportRow(report: report)
+        Group {
+            if isLoading {
+                ProgressView("Loading…").padding()
+            } else if let errorText {
+                VStack(spacing: 8) {
+                    Text("Failed to load").font(.headline)
+                    Text(errorText).font(.caption).foregroundStyle(.secondary)
+                    Button("Retry") { Task { await load() } }
+                        .buttonStyle(.borderedProminent)
                 }
+                .padding()
+            } else if items.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "tray")
+                        .font(.largeTitle)
+                        .foregroundColor(Color(hex: "#312F30"))
+                    Text("No reports yet")
+                        .font(.custom("Helvetica-Bold", size: 20))
+                        .padding(.top, 10)
+                        .foregroundColor(Color(hex: "#312F30"))
+                        .kerning(0.2)
+                        .lineSpacing(30)
+                        .padding(.top, 0)
+                    Text("Check back later or pick another category.")
+                        .font(.body)
+                        .foregroundColor(.gray)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+            } else {
+                List(items, id: \.id) { r in
+                    NavigationLink {
+                        ReportDetailViewNet(report: r)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(r.animalType ?? "Animal")
+                                    .font(.headline)
+                                Spacer()
+                                Text(r.status ?? "Unknown")
+                                    .font(.caption)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Capsule().fill(.gray.opacity(0.15)))
+                            }
+                            Text(r.nearestLandmark ?? "Unknown location")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .refreshable { await load() }
             }
-            .listStyle(.plain)
         }
+        .task { await load() }
+        .navigationTitle(category.rawValue)
+    }
+
+    private func load() async {
+        isLoading = true
+        errorText = nil
+        do {
+            items = try await ReportsAPI.fetch(category: category)
+        } catch {
+            items = []
+            errorText = "\(error)"
+        }
+        isLoading = false
     }
 }
 
-// MARK: - Row & Detail
-struct ReportRow: View {
-    let report: Report
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(report.title)
-                    .font(.headline)
-                Spacer()
-                Text(report.status.rawValue)
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(.gray.opacity(0.15)))
-            }
-            Text(report.location)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
+// MARK: - Supabase-backed Detail + Status Update
+struct ReportDetailViewNet: View {
+    let report: ReportsAPI.NetReport
+    @State private var currentStatus: String
+    @State private var saving = false
+    @State private var saveMsg: String?
 
-struct ReportDetailView: View {
-    let report: Report
+    // Simple demo statuses for community updates
+    private let statuses = ["Unknown", "Open", "In Progress", "Resolved"]
+
+    init(report: ReportsAPI.NetReport) {
+        self.report = report
+        _currentStatus = State(initialValue: report.status ?? "Unknown")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(report.title).font(.title2).bold()
-            Text("Location: \(report.location)")
-            Text("Status: \(report.status.rawValue)")
+            Text(report.animalType ?? "Animal").font(.title2).bold()
+            Text("Location: \(report.nearestLandmark ?? "Unknown")")
+            Text("Status: \(currentStatus)")
+
+            Picker("Update Status", selection: $currentStatus) {
+                ForEach(statuses, id: \.self) { Text($0).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.top, 8)
+
+            Button {
+                Task {
+                    saving = true; defer { saving = false }
+                    do {
+                        try await ReportsAPI.updateStatus(id: report.id, status: currentStatus)
+                        saveMsg = "Updated!"
+                    } catch {
+                        saveMsg = "Update failed: \(error)"
+                    }
+                }
+            } label: {
+                Text(saving ? "Saving…" : "Save")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 8)
+
+            if let created = report.created_at {
+                Text("Created: \(created.formatted())").foregroundStyle(.secondary)
+            }
+            if let saveMsg { Text(saveMsg).foregroundStyle(.secondary) }
+
+            Spacer()
         }
         .padding()
         .navigationTitle("Report")
     }
-}
-
-// MARK: - Minimal Report Model
-struct Report: Identifiable {
-    enum Status: String { case open = "Open", inProgress = "In Progress", resolved = "Resolved" }
-    let id = UUID()
-    var title: String
-    var location: String
-    var status: Status
-    var category: ReportCategory
 }
 
 // MARK: - Preview

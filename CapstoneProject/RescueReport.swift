@@ -17,7 +17,6 @@ struct RescueReport: Identifiable, Codable {
     var longitude: Double?
     var media: [AttachedMedia] // images or videos (thumbnails stored here)
 
-    
     init(
         id: UUID = UUID(),
         createdAt: Date = Date(),
@@ -78,7 +77,6 @@ final class ReportFormViewModel: ObservableObject {
     @Published var selection: [PhotosPickerItem] = []
     @Published var attachedPreviews: [Image] = []
 
-    // Simple validation for enabling Submit
     var canSubmit: Bool {
         !report.animalType.trimmingCharacters(in: .whitespaces).isEmpty &&
         report.status != .unknown
@@ -96,12 +94,9 @@ final class ReportFormViewModel: ObservableObject {
         for item in selection {
             do {
                 let isVideo = (item.supportedContentTypes.first?.preferredMIMEType ?? "").starts(with: "video/")
-                // Try to get transferable image for thumbnails
                 if let data = try await item.loadTransferable(type: Data.self) {
                     var thumbnail: UIImage?
                     if isVideo {
-                        // Try to create a thumbnail from video data (best-effort)
-                        // In a simple demo we just leave thumbnail nil for videos loaded as raw data.
                         thumbnail = nil
                     } else if let ui = UIImage(data: data) {
                         thumbnail = ui
@@ -128,16 +123,21 @@ struct ReportFormView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var vm = ReportFormViewModel()
 
-    /// Pass the coordinate from your Map hazard button when pushing this screen
+    /// Which category the user picked (needed for Supabase row)
+    let category: ReportCategory
+
+    /// Optional coordinate passed from the map
     let coordinate: CLLocationCoordinate2D?
 
-    /// Caller can receive the new report on submit
+    /// Caller can still receive the new report locally if you want
     var onSubmit: (RescueReport) -> Void
 
     init(
+        category: ReportCategory,
         coordinate: CLLocationCoordinate2D? = nil,
         onSubmit: @escaping (RescueReport) -> Void
     ) {
+        self.category = category
         self.coordinate = coordinate
         self.onSubmit = onSubmit
     }
@@ -227,7 +227,7 @@ struct ReportFormView: View {
                                     .font(.system(size: 34, weight: .bold))
                             }
                         }
-                        .onChange(of: vm.selection) { oldValue, newValue in
+                        .onChange(of: vm.selection) { _, _ in
                             Task { await vm.loadPickedMedia() }
                         }
 
@@ -253,12 +253,24 @@ struct ReportFormView: View {
                     Button {
                         var ready = vm.report
                         ready.createdAt = Date()
-                        // ensure coordinate is captured from map if provided
                         if let c = coordinate {
                             ready.latitude = c.latitude
                             ready.longitude = c.longitude
                         }
+
+                        // (A) keep your existing local behavior if desired
                         onSubmit(ready)
+
+                        // (B) send to Supabase (shared community feed)
+                        Task {
+                            do {
+                                try await ReportsAPI.create(from: ready, category: category)
+                            } catch {
+                                print("❌ Supabase create failed:", error)
+                            }
+                        }
+
+                        // close the form
                         dismiss()
                     } label: {
                         Text("Submit Report")
@@ -278,18 +290,15 @@ struct ReportFormView: View {
             .navigationBarBackButtonHidden(true)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
+                    Button { dismiss() } label: {
                         HStack(spacing: 8) {
                             Image("Arrow")
                                 .resizable()
                                 .renderingMode(.template)
                                 .foregroundColor(.primary)
                                 .scaledToFit()
-                                .frame(width: 30, height:30)
-                                .font(.title)
-                                
+                                .frame(width: 30, height: 30)
+
                             Text("Back")
                                 .font(.body)
                                 .foregroundColor(.primary)
@@ -319,5 +328,8 @@ struct ReportFormView: View {
 
 // MARK: - Preview (remove in production)
 #Preview {
-    ReportFormView(coordinate: CLLocationCoordinate2D(latitude: 40.71, longitude: -74.0)) { _ in }
+    ReportFormView(
+        category: .found,
+        coordinate: CLLocationCoordinate2D(latitude: 40.71, longitude: -74.0)
+    ) { _ in }
 }
