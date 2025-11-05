@@ -17,5 +17,3 @@ struct CapstoneProjectApp: App {
         .modelContainer(for: [UserEntity.self, ReportEntity.self])
     }
 }
-
-

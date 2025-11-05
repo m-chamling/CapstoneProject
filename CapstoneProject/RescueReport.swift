@@ -17,6 +17,7 @@ struct RescueReport: Identifiable, Codable {
     var longitude: Double?
     var media: [AttachedMedia] // images or videos (thumbnails stored here)
 
+    
     init(
         id: UUID = UUID(),
         createdAt: Date = Date(),

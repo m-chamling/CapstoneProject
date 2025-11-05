@@ -10,6 +10,10 @@ struct MainAppView: View {
             // REPORTS TAB
             ExploreReportsView()
                 .tabItem { Label("Reports", systemImage: "list.bullet") }
+            
+            // CREATE TAB
+            ReportCategoryView()
+                .tabItem { Label("Create", systemImage: "plus") }
 
             // PROFILE TAB
             UserProfileView()
