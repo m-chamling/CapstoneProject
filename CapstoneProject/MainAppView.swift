@@ -12,7 +12,7 @@ struct MainAppView: View {
                 .tabItem { Label("Reports", systemImage: "list.bullet") }
             
             // CREATE TAB
-            ReportCategoryView()
+            CreateReportFlow()
                 .tabItem { Label("Create", systemImage: "plus") }
 
             // PROFILE TAB

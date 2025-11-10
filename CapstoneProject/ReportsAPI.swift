@@ -76,6 +76,7 @@ enum ReportsAPI {
         return try JSONDecoder.iso8601.decode([NetReport].self, from: data)
     }
 
+    
     // MARK: - Update status (PATCH)
     static func updateStatus(id: UUID, status: String) async throws {
         var comps = URLComponents(url: base, resolvingAgainstBaseURL: false)!
@@ -111,3 +112,27 @@ extension JSONDecoder {
         let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d
     }
 }
+
+// MARK: - Debug connectivity test
+extension ReportsAPI {
+    static func debugPing() async {
+        guard let url = URL(string: "\(Supa.url.absoluteString)/rest/v1/public_reports?select=id&limit=1") else {
+            print("🚫 Bad URL"); return
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue("Bearer \(Supa.anon)", forHTTPHeaderField: "Authorization")
+        req.setValue(Supa.anon, forHTTPHeaderField: "apikey")
+
+        do {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            if let http = resp as? HTTPURLResponse {
+                print("🌍 HTTP", http.statusCode)
+            }
+            print("📦 Body:", String(data: data, encoding: .utf8) ?? "<non-utf8>")
+        } catch {
+            print("❌ ERROR:", error.localizedDescription)
+        }
+    }
+}
+

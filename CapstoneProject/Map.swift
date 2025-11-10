@@ -47,6 +47,7 @@ struct RescueMapScreen: View {
                 MapScaleView()
             }
             .task {
+                await ReportsAPI.debugPing()
                 await LocationAuthorizer.requestWhenInUse()
                 await loadAll()
             }

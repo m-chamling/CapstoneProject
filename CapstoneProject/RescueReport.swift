@@ -143,171 +143,170 @@ struct ReportFormView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    Text("Report what you see:")
-                        .font(.custom("Helvetica-Bold", size: 27))
-                        .padding(.top, 100)
-                        .foregroundColor(Color("PrimaryText"))
-                        .kerning(0.2)
-                        .lineSpacing(30)
-                        .padding(.top, -70)
+        // ⬇️ NO inner NavigationStack here
+        ScrollView {
+            VStack(spacing: 18) {
+                Text("Report what you see:")
+                    .font(.custom("Helvetica-Bold", size: 27))
+                    .padding(.top, 100)
+                    .foregroundColor(.primary)
+                    .kerning(0.2)
+                    .lineSpacing(30)
+                    .padding(.top, -70)
 
-                    Text("Try to give more information to help us better")
-                        .font(.body)
-                        .foregroundColor(Color("SecondaryText"))
-                        .multilineTextAlignment(.center)
+                Text("Try to give more information to help us better")
+                    .font(.body)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
 
-                    capsuleField(title: "Animal Type", placeholder: "e.g., Dog, Cat, Deer", text: $vm.report.animalType)
-                        .padding(.top, 20)
+                capsuleField(title: "Animal Type", placeholder: "e.g., Dog, Cat, Deer", text: $vm.report.animalType)
+                    .padding(.top, 20)
 
-                    capsuleField(title: "Color", placeholder: "e.g., Brown with white patch", text: $vm.report.color)
+                capsuleField(title: "Color", placeholder: "e.g., Brown with white patch", text: $vm.report.color)
 
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Date of Incident").font(.headline)
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(.gray.opacity(0.35), lineWidth: 1)
-                            .frame(height: 56)
-                            .overlay {
-                                DatePicker("", selection: $vm.report.incidentDate, displayedComponents: [.date, .hourAndMinute])
-                                    .labelsHidden()
-                                    .padding(.horizontal)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Animal Status").font(.headline)
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(.gray.opacity(0.35), lineWidth: 1)
-                            .frame(height: 56)
-                            .overlay {
-                                Picker("Animal Status", selection: $vm.report.status) {
-                                    ForEach(AnimalStatus.allCases) { s in
-                                        Text(s.rawValue).tag(s)
-                                    }
-                                }
-                                .pickerStyle(.menu)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Date of Incident").font(.headline)
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(.gray.opacity(0.35), lineWidth: 1)
+                        .frame(height: 56)
+                        .overlay {
+                            DatePicker("", selection: $vm.report.incidentDate, displayedComponents: [.date, .hourAndMinute])
+                                .labelsHidden()
                                 .padding(.horizontal)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                    }
-
-                    capsuleField(title: "Nearest Landmark", placeholder: "e.g., Main St & 5th Ave", text: $vm.report.nearestLandmark)
-
-                    // Description - multiline capsule
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Description").font(.headline)
-                        RoundedRectangle(cornerRadius: 22)
-                            .stroke(.gray.opacity(0.35), lineWidth: 1)
-                            .frame(minHeight: 140)
-                            .overlay(alignment: .topLeading) {
-                                TextEditor(text: $vm.report.description)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
-                                    .overlay(alignment: .topLeading) {
-                                        if vm.report.description.isEmpty {
-                                            Text("Provide extra information if any.")
-                                                .foregroundStyle(.secondary)
-                                                .padding(.horizontal, 20)
-                                                .padding(.top, 16)
-                                        }
-                                    }
-                            }
-                    }
-
-                    // Add Picture/Video
-                    VStack(spacing: 10) {
-                        PhotosPicker(selection: $vm.selection, maxSelectionCount: 4, matching: .any(of: [.images, .videos])) {
-                            ZStack {
-                                Circle().strokeBorder(.gray.opacity(0.35), lineWidth: 3)
-                                    .frame(width: 84, height: 84)
-                                Image(systemName: "plus")
-                                    .font(.system(size: 34, weight: .bold))
-                            }
                         }
-                        .onChange(of: vm.selection) { _, _ in
-                            Task { await vm.loadPickedMedia() }
-                        }
-
-                        Text("Add Picture/Video").foregroundStyle(.secondary)
-                        if !vm.attachedPreviews.isEmpty {
-                            ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 10) {
-                                    ForEach(Array(vm.attachedPreviews.enumerated()), id: \.offset) { _, img in
-                                        img
-                                            .resizable()
-                                            .scaledToFill()
-                                            .frame(width: 90, height: 90)
-                                            .clipped()
-                                            .cornerRadius(12)
-                                    }
-                                }.padding(.vertical, 6)
-                            }
-                        }
-                    }
-                    .padding(.top, 6)
-
-                    // Submit
-                    Button {
-                        var ready = vm.report
-                        ready.createdAt = Date()
-                        if let c = coordinate {
-                            ready.latitude = c.latitude
-                            ready.longitude = c.longitude
-                        }
-
-                        // (A) keep your existing local behavior if desired
-                        onSubmit(ready)
-
-                        // (B) send to Supabase (shared community feed)
-                        Task {
-                            do {
-                                try await ReportsAPI.create(from: ready, category: category)
-                            } catch {
-                                print("❌ Supabase create failed:", error)
-                            }
-                        }
-
-                        // close the form
-                        dismiss()
-                    } label: {
-                        Text("Submit Report")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 58)
-                            .background(vm.canSubmit ? .black : .gray.opacity(0.4))
-                            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                    }
-                    .disabled(!vm.canSubmit)
-                    .padding(.top, 8)
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 24)
-            }
-            .navigationBarBackButtonHidden(true)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button { dismiss() } label: {
-                        HStack(spacing: 8) {
-                            Image("Arrow")
-                                .resizable()
-                                .renderingMode(.template)
-                                .foregroundColor(.primary)
-                                .scaledToFit()
-                                .frame(width: 30, height: 30)
 
-                            Text("Back")
-                                .font(.body)
-                                .foregroundColor(.primary)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Animal Status").font(.headline)
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(.gray.opacity(0.35), lineWidth: 1)
+                        .frame(height: 56)
+                        .overlay {
+                            Picker("Animal Status", selection: $vm.report.status) {
+                                ForEach(AnimalStatus.allCases) { s in
+                                    Text(s.rawValue).tag(s)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .padding(.horizontal)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                }
+
+                capsuleField(title: "Nearest Landmark", placeholder: "e.g., Main St & 5th Ave", text: $vm.report.nearestLandmark)
+
+                // Description - multiline capsule
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Description").font(.headline)
+                    RoundedRectangle(cornerRadius: 22)
+                        .stroke(.gray.opacity(0.35), lineWidth: 1)
+                        .frame(minHeight: 140)
+                        .overlay(alignment: .topLeading) {
+                            TextEditor(text: $vm.report.description)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .overlay(alignment: .topLeading) {
+                                    if vm.report.description.isEmpty {
+                                        Text("Provide extra information if any.")
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 20)
+                                            .padding(.top, 16)
+                                    }
+                                }
+                        }
+                }
+
+                // Add Picture/Video
+                VStack(spacing: 10) {
+                    PhotosPicker(selection: $vm.selection, maxSelectionCount: 4, matching: .any(of: [.images, .videos])) {
+                        ZStack {
+                            Circle().strokeBorder(.gray.opacity(0.35), lineWidth: 3)
+                                .frame(width: 84, height: 84)
+                            Image(systemName: "plus")
+                                .font(.system(size: 34, weight: .bold))
+                        }
+                    }
+                    .onChange(of: vm.selection) { _, _ in
+                        Task { await vm.loadPickedMedia() }
+                    }
+
+                    Text("Add Picture/Video").foregroundStyle(.secondary)
+                    if !vm.attachedPreviews.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(Array(vm.attachedPreviews.enumerated()), id: \.offset) { _, img in
+                                    img
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 90, height: 90)
+                                        .clipped()
+                                        .cornerRadius(12)
+                                }
+                            }.padding(.vertical, 6)
                         }
                     }
                 }
+                .padding(.top, 6)
+
+                // Submit
+                Button {
+                    var ready = vm.report
+                    ready.createdAt = Date()
+                    if let c = coordinate {
+                        ready.latitude = c.latitude
+                        ready.longitude = c.longitude
+                    }
+
+                    // (A) local callback
+                    onSubmit(ready)
+
+                    // (B) remote create
+                    Task {
+                        do {
+                            try await ReportsAPI.create(from: ready, category: category)
+                        } catch {
+                            print("❌ Supabase create failed:", error)
+                        }
+                    }
+
+                    // Close the form
+                    dismiss()
+                } label: {
+                    Text("Submit Report")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 58)
+                        .background(vm.canSubmit ? .black : .gray.opacity(0.4))
+                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                }
+                .disabled(!vm.canSubmit)
+                .padding(.top, 8)
             }
-            .onAppear { vm.setCoordinate(coordinate) }
+            .padding(.horizontal, 18)
+            .padding(.bottom, 24)
         }
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { dismiss() } label: {
+                    HStack(spacing: 8) {
+                        Image("Arrow") // while debugging, you can use: Image(systemName: "chevron.left")
+                            .resizable()
+                            .renderingMode(.template)
+                            .foregroundColor(.primary)
+                            .scaledToFit()
+                            .frame(width: 30, height: 30)
+
+                        Text("Back")
+                            .font(.body)
+                            .foregroundColor(.primary)
+                    }
+                }
+            }
+        }
+        .onAppear { vm.setCoordinate(coordinate) }
     }
 
     // MARK: - Styled capsule textfield
@@ -325,6 +324,7 @@ struct ReportFormView: View {
         }
     }
 }
+
 
 // MARK: - Preview (remove in production)
 #Preview {

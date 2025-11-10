@@ -5,14 +5,32 @@ enum Supa {
 
     private static func load() -> (URL, String) {
         guard
-            let url = Bundle.main.url(forResource: "Supabase", withExtension: "plist"),
-            let dict = NSDictionary(contentsOf: url) as? [String: Any],
-            let urlStr = dict["SUPABASE_URL"] as? String,
-            let key = dict["SUPABASE_ANON_KEY"] as? String,
-            let base = URL(string: urlStr)
+            let plistURL = Bundle.main.url(forResource: "Supabase", withExtension: "plist"),
+            let dict = NSDictionary(contentsOf: plistURL) as? [String: Any],
+            var urlStr = dict["SUPABASE_URL"] as? String,
+            var key = dict["SUPABASE_ANON_KEY"] as? String
         else {
-            fatalError("❌ Missing Supabase.plist or keys.")
+            fatalError("❌ Missing Supabase.plist or required keys.")
         }
-        return (base, key)
+
+        // Trim any invisible spaces/newlines
+        urlStr = urlStr.trimmingCharacters(in: .whitespacesAndNewlines)
+        key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Accept short refs like "abcd123efg456" or full URLs
+        let fullURL: URL
+        if urlStr.hasPrefix("http") {
+            guard let u = URL(string: urlStr) else {
+                fatalError("❌ Invalid SUPABASE_URL format: \(urlStr)")
+            }
+            fullURL = u
+        } else {
+            guard let u = URL(string: "https://\(urlStr).supabase.co") else {
+                fatalError("❌ Invalid Supabase project ref: \(urlStr)")
+            }
+            fullURL = u
+        }
+
+        return (fullURL, key)
     }
 }

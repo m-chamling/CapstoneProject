@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
 	<key>SUPABASE_ANON_KEY</key>
-	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkbmZscmtyY3RibHhhc3drY2x0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIxNjk5NjEsImV4cCI6MjA3Nzc0NTk2MX0.aA5RkVmFP5yqNMZFWF0sxiSstTPUxIVXb_VrIc_cFsY</string>
+	<string>eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJvYW5ueXFhbGhmZW9pd2Z6bGl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNzQ4MTUsImV4cCI6MjA3Nzk1MDgxNX0.V5JIAYyxjf30sx5PvVSniBUK8D_nLd1ownS9hz37Lcw</string>
 	<key>SUPABASE_URL</key>
-	<string>https://cdnflrkrctblxaswkclt.supabase.co</string>
+	<string>https://boannyqalhfeoiwfzliw.supabase.co</string>
 </dict>
 </plist>
